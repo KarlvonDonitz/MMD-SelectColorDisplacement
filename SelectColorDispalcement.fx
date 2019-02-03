@@ -7,7 +7,7 @@ float Script : STANDARDSGLOBAL <
     string ScriptOrder = "postprocess";
 > = 0.8;
 
-float scaling : CONTROLOBJECT < string name = "(self)"; >;
+float scaling : CONTROLOBJECT < string name = "(self)"; string item = "Si";>;
 float time: TIME;
 float2 ViewportSize : VIEWPORTPIXELSIZE;
 float Transparent : CONTROLOBJECT < string name = "(self)"; string item = "Tr"; >;
@@ -36,27 +36,18 @@ sampler2D ScnSamp = sampler_state {
 };
 
 texture2D DepthBuffer : RENDERDEPTHSTENCILTARGET <
-
     string Format = "D24S8";
 >;
 
-texture EdgeRT: OFFSCREENRENDERTARGET <
-   
+texture ColorMask: OFFSCREENRENDERTARGET <
+    string Description = "Color Mask for SelectColorDisplacement.fx";
     float4 ClearColor = { 0, 0, 0, 1 };
     float ClearDepth = 1.0;
     bool AntiAlias = 0;
     string DefaultEffect = 
-        "* = White.fx";
+        "* = OFF.fx";
 >;
 
-texture WB2: OFFSCREENRENDERTARGET <
-   
-    float4 ClearColor = { 0, 0, 0, 1 };
-    float ClearDepth = 1.0;
-    bool AntiAlias = 0;
-    string DefaultEffect = 
-        "* = White.fx";
->;
 
 struct VS_OUTPUT {
     float4 Pos			: POSITION;
@@ -65,15 +56,8 @@ struct VS_OUTPUT {
 
 
 
-sampler EdgeView = sampler_state {
-    texture = <EdgeRT>;
-    AddressU  = CLAMP;
-    AddressV = CLAMP;
-    Filter = NONE;
-};
-
-sampler displacementmap = sampler_state {
-    texture = <WB2>;
+sampler Mask = sampler_state {
+    texture = <ColorMask>;
     AddressU  = CLAMP;
     AddressV = CLAMP;
     Filter = NONE;
@@ -92,10 +76,10 @@ float4 PS_passMain(float2 Tex: TEXCOORD0) : COLOR
     float4 Color = 1;
 	float4 ColorSamp=1;
 	float4 ScnColor = tex2D(ScnSamp,Tex);
-    float EdgeSamp= tex2D(EdgeView,Tex);
+    float EdgeSamp= tex2D(Mask,Tex);
 	float2 Tex0=Tex;
 	Tex0.x += ((sin(Tex.y*300+time*5)*3+cos(Tex.y*100+time)*2+sin(Tex.y*250+time*5))+3)/scaling;
-	float4 DisplacementColor = tex2D(displacementmap,Tex0);
+	float4 DisplacementColor = tex2D(Mask,Tex0);
 	EdgeSamp *= DisplacementColor;
 	Color = float4(0,0,0,1);
 	if (EdgeSamp == 0) {
