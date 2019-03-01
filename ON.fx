@@ -75,7 +75,6 @@ VS_OUTPUT1 Basic_VS( float4 Pos : POSITION , float3 Normal : NORMAL, float2 Tex 
 {
     float4 Pos0 = Pos;
     Pos = mul(Pos,WVP);
-	Pos *=1.0001;
     float3 Eye = CameraPosition - mul( Pos0, WorldMatrix );
     Normal = normalize( mul( Normal, WorldMatrix ) );
 	float2 NormalWV = mul( Normal , (float3x3)ViewMatrix );
