@@ -7,7 +7,11 @@ float Script : STANDARDSGLOBAL <
     string ScriptOrder = "postprocess";
 > = 0.8;
 
-float scaling : CONTROLOBJECT < string name = "(self)"; string item = "Si";>;
+float Intensity : CONTROLOBJECT < string name = "(self)"; string item = "Si"; > ;
+float Frequency : CONTROLOBJECT < string name = "(self)"; string item = "X"; > ;
+float Value1 : CONTROLOBJECT < string name = "(self)"; string item = "Y"; > ;
+float Value2 : CONTROLOBJECT < string name = "(self)"; string item = "Z"; > ;
+float Block : CONTROLOBJECT < string name = "(self)"; string item = "Tr"; > ;
 float time: TIME;
 float2 ViewportSize : VIEWPORTPIXELSIZE;
 float Transparent : CONTROLOBJECT < string name = "(self)"; string item = "Tr"; >;
@@ -48,20 +52,69 @@ texture ColorMask: OFFSCREENRENDERTARGET <
         "* = OFF.fx";
 >;
 
+sampler Mask = sampler_state {
+	texture = <ColorMask>;
+	AddressU = CLAMP;
+	AddressV = CLAMP;
+	Filter = NONE;
+};
+
+float4 permute(float4 x)
+{
+	return ((x*34.0) + 1.0)*x - floor(((x*34.0) + 1.0)*x / 289.0) * 289.0;
+}
+
+float4 taylorInvSqrt(float4 r)
+{
+	return (float4)1.79284291400159 - r * 0.85373472095314;
+}
+
+float pnoise(float2 P, float2 rep)
+{
+	float4 Pi = floor(P.xyxy) + float4(0.0, 0.0, 1.0, 1.0);
+	float4 Pf = frac(P.xyxy) - float4(0.0, 0.0, 1.0, 1.0);
+	Pi = Pi - rep.xyxy * floor(Pi / rep.xyxy);
+	Pi = Pi - floor(Pi / 289.0) * 289.0;
+	float4 ix = Pi.xzxz;
+	float4 iy = Pi.yyww;
+	float4 fx = Pf.xzxz;
+	float4 fy = Pf.yyww;
+
+	float4 i = permute(permute(ix) + iy);
+
+	float4 gx = frac(i / 41.0) * 2.0 - 1.0;
+	float4 gy = abs(gx) - 0.5;
+	float4 tx = floor(gx + 0.5);
+	gx = gx - tx;
+
+	float2 g00 = float2(gx.x, gy.x);
+	float2 g10 = float2(gx.y, gy.y);
+	float2 g01 = float2(gx.z, gy.z);
+	float2 g11 = float2(gx.w, gy.w);
+
+	float4 norm = taylorInvSqrt(float4(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11)));
+	g00 *= norm.x;
+	g01 *= norm.y;
+	g10 *= norm.z;
+	g11 *= norm.w;
+
+	float n00 = dot(g00, float2(fx.x, fy.x));
+	float n10 = dot(g10, float2(fx.y, fy.y));
+	float n01 = dot(g01, float2(fx.z, fy.z));
+	float n11 = dot(g11, float2(fx.w, fy.w));
+
+	float2 fade_xy = Pf.xy*Pf.xy*Pf.xy*(Pf.xy*(Pf.xy*6.0 - 15.0) + 10.0);
+	float2 n_x = lerp(float2(n00, n01), float2(n10, n11), fade_xy.x);
+	float n_xy = lerp(n_x.x, n_x.y, fade_xy.y);
+	return 2.3 * n_xy;
+}
+
 
 struct VS_OUTPUT {
     float4 Pos			: POSITION;
 	float2 Tex			: TEXCOORD0;
 };
 
-
-
-sampler Mask = sampler_state {
-    texture = <ColorMask>;
-    AddressU  = CLAMP;
-    AddressV = CLAMP;
-    Filter = NONE;
-};
 
 VS_OUTPUT VS_passMain( float4 Pos : POSITION, float4 Tex : TEXCOORD0 ){
     VS_OUTPUT Out = (VS_OUTPUT)0; 
@@ -73,22 +126,15 @@ VS_OUTPUT VS_passMain( float4 Pos : POSITION, float4 Tex : TEXCOORD0 ){
 
 float4 PS_passMain(float2 Tex: TEXCOORD0) : COLOR
 {   
-    float4 Color = 1;
-	float4 ColorSamp=1;
-	float4 ScnColor = tex2D(ScnSamp,Tex);
-    float EdgeSamp= tex2D(Mask,Tex);
-	float2 Tex0=Tex;
-	Tex0.x += ((sin(Tex.y*300+time*5)*3+cos(Tex.y*100+time)*2+sin(Tex.y*250+time*5))+3)/scaling;
-	float4 DisplacementColor = tex2D(Mask,Tex0);
-	EdgeSamp *= DisplacementColor;
-	Color = float4(0,0,0,1);
-	if (EdgeSamp == 0) {
-	Tex.x += ((sin(Tex.y*300+time*5)*3+cos(Tex.y*100+time)*2+sin(Tex.y*250+time*5))+3)/scaling;
-	ColorSamp = tex2D(ScnSamp,Tex);
-	} else {
-	ColorSamp = ScnColor;
+	float4 Color = tex2D(ScnSamp,Tex);
+    float MaskSamp= tex2D(Mask,Tex);
+	Tex.x += lerp(0, Intensity, pnoise(float2(1, Tex.y*Frequency + time), float2(Value1, Value2)));
+	float DisplacementColor = tex2D(Mask, Tex);
+	MaskSamp *= DispalcementColor;
+	if (MaskSamp == 0)
+	{
+		Color = tex2D(ScnSamp, Tex);
 	}
-	Color= ColorSamp*Transparent+ScnColor*(1-Transparent);
     return Color;
 }
 
