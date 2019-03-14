@@ -1,4 +1,4 @@
-#define AA_FLG 1
+#define AA_FLG 0
 //edit by KarlvonDonitz
 
 float Script : STANDARDSGLOBAL <
@@ -7,11 +7,12 @@ float Script : STANDARDSGLOBAL <
     string ScriptOrder = "postprocess";
 > = 0.8;
 
-float Intensity : CONTROLOBJECT < string name = "(self)"; string item = "Si"; > ;
-float Frequency : CONTROLOBJECT < string name = "(self)"; string item = "X"; > ;
-float Value1 : CONTROLOBJECT < string name = "(self)"; string item = "Y"; > ;
-float Value2 : CONTROLOBJECT < string name = "(self)"; string item = "Z"; > ;
-float Block : CONTROLOBJECT < string name = "(self)"; string item = "Tr"; > ;
+float Intensity : CONTROLOBJECT < string name = "(self)"; string item = "Si";>;
+float Frequency : CONTROLOBJECT < string name = "(self)"; string item = "X";>;
+float Speed : CONTROLOBJECT < string name = "(self)"; string item = "Y";>;
+float Value1 : CONTROLOBJECT < string name = "(self)"; string item = "Rx";>;
+float Value2 : CONTROLOBJECT < string name = "(self)"; string item = "Ry";>;
+float Block : CONTROLOBJECT < string name = "(self)"; string item = "Tr";>;
 float time: TIME;
 float2 ViewportSize : VIEWPORTPIXELSIZE;
 float Transparent : CONTROLOBJECT < string name = "(self)"; string item = "Tr"; >;
@@ -128,9 +129,14 @@ float4 PS_passMain(float2 Tex: TEXCOORD0) : COLOR
 {   
 	float4 Color = tex2D(ScnSamp,Tex);
     float MaskSamp= tex2D(Mask,Tex);
-	Tex.x += lerp(0, Intensity, pnoise(float2(1, Tex.y*Frequency + time), float2(Value1, Value2)));
+	double DisplacementValue = lerp(0,Intensity,pnoise(float2(1,Tex.y*Frequency+time*Speed),float2(Value1,Value2)));
+	double BlockDisplacementValue = double(int(DisplacementValue*100))/100;
+	if (Block ==0) {
+    DisplacementValue = BlockDisplacementValue;
+    }
+    Tex.x += DisplacementValue;
 	float DisplacementColor = tex2D(Mask, Tex);
-	MaskSamp *= DispalcementColor;
+	MaskSamp *= DisplacementColor;
 	if (MaskSamp == 0)
 	{
 		Color = tex2D(ScnSamp, Tex);
