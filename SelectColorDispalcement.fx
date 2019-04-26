@@ -15,7 +15,6 @@ float Value2 : CONTROLOBJECT < string name = "(self)"; string item = "Ry";>;
 float Block : CONTROLOBJECT < string name = "(self)"; string item = "Tr";>;
 float time: TIME;
 float2 ViewportSize : VIEWPORTPIXELSIZE;
-float Transparent : CONTROLOBJECT < string name = "(self)"; string item = "Tr"; >;
 
 static float2 ViewportOffset = (float2(0.5,0.5)/ViewportSize);
 float4   MaterialDiffuse   : DIFFUSE  < string Object = "Geometry"; >;
